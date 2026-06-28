@@ -23,10 +23,14 @@ const OLLAMA = {
 };
 const PORT = process.env.PORT || 3000;
 const ACCESS_CODE = process.env.ACCESS_CODE || '';
+// raw=true feeds the prompt verbatim (no chat template). Set RAW=false in
+// .env to let Ollama apply each model's chat template instead.
+const RAW = (process.env.RAW ?? 'true').toLowerCase() !== 'false';
 
 if (!ACCESS_CODE) {
   console.warn('⚠  No ACCESS_CODE set in .env — the API is open to anyone.');
 }
+console.log(`raw mode: ${RAW}`);
 
 const server = http.createServer((req, res) => {
   if (req.url === '/' || req.url === '/index.html') {
@@ -50,6 +54,54 @@ const server = http.createServer((req, res) => {
       res.end(JSON.stringify({ error: 'Invalid or missing access code.' }));
       return;
     }
+    const onErr = (e) => {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(
+        JSON.stringify({
+          error: `Cannot reach Ollama at ${OLLAMA.host}:${OLLAMA.port} — ${e.message}`,
+        })
+      );
+    };
+
+    // For generate, buffer the body and force the raw flag from config so the
+    // server decides templating, not the client.
+    if (req.url === '/api/generate' && req.method === 'POST') {
+      let body = '';
+      req.on('data', (c) => (body += c));
+      req.on('end', () => {
+        let payload;
+        try {
+          payload = JSON.parse(body || '{}');
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid JSON body.' }));
+          return;
+        }
+        payload.raw = RAW;
+        const data = JSON.stringify(payload);
+        const proxy = http.request(
+          {
+            host: OLLAMA.host,
+            port: OLLAMA.port,
+            method: 'POST',
+            path: req.url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(data),
+            },
+          },
+          (pres) => {
+            res.writeHead(pres.statusCode, pres.headers);
+            pres.pipe(res);
+          }
+        );
+        proxy.on('error', onErr);
+        proxy.end(data);
+      });
+      return;
+    }
+
+    // Everything else (e.g. /api/tags): transparent streaming proxy.
     const proxy = http.request(
       {
         host: OLLAMA.host,
@@ -63,14 +115,7 @@ const server = http.createServer((req, res) => {
         pres.pipe(res);
       }
     );
-    proxy.on('error', (e) => {
-      res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(
-        JSON.stringify({
-          error: `Cannot reach Ollama at ${OLLAMA.host}:${OLLAMA.port} — ${e.message}`,
-        })
-      );
-    });
+    proxy.on('error', onErr);
     req.pipe(proxy);
     return;
   }

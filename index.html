@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ollama raw /api/generate — demo</title>
+  <title>CoDataSorb — LLM playground</title>
   <style>
     :root {
       --bg: #0f1116;
@@ -130,6 +130,37 @@
       min-height: 16px;
     }
     .err { color: #ff7a7a; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      margin-right: 8px;
+      border: 2px solid rgba(255, 255, 255, 0.18);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      vertical-align: -3px;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loader {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 14px;
+      color: var(--muted);
+      font-family: system-ui, sans-serif;
+    }
+    .loader .spinner { width: 22px; height: 22px; border-width: 3px; margin: 0; }
+    .cursor {
+      display: inline-block;
+      width: 7px;
+      height: 1.05em;
+      background: var(--accent);
+      vertical-align: text-bottom;
+      animation: blink 1s steps(1) infinite;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
 
     .gate {
       position: fixed;
@@ -321,16 +352,20 @@
       const answer = $('answer');
       const meta = $('meta');
       meta.className = 'meta';
-      meta.textContent = 'generating…';
-      // Show the raw prompt echoed, then the model's continuation after it.
-      answer.innerHTML = '<span class="echo"></span><span class="completion"></span>';
+      meta.innerHTML = '<span class="spinner"></span>loading model &amp; generating…';
+      // Show the raw prompt echoed, then the model's continuation after it,
+      // with a blinking cursor while we stream. A big loader sits below until
+      // the first token arrives (covers the cold-start model load).
+      answer.innerHTML =
+        '<span class="echo"></span><span class="completion"></span><span class="cursor"></span>' +
+        '<div class="loader"><span class="spinner"></span><span>loading model…</span></div>';
       answer.querySelector('.echo').textContent = prompt;
       const completion = answer.querySelector('.completion');
 
       const body = {
         model,
         prompt,
-        raw: true,
+        // raw flag is set server-side from the RAW env var.
         stream: true,
         options: {
           temperature: Number($('temperature').value),
@@ -365,6 +400,11 @@
             const obj = JSON.parse(line);
             if (obj.error) throw new Error(obj.error);
             if (obj.response) {
+              if (!completion.textContent) {
+                // First token in: model is loaded, drop the loader.
+                answer.querySelector('.loader')?.remove();
+                meta.innerHTML = '<span class="spinner"></span>generating…';
+              }
               completion.textContent += obj.response;
               answer.scrollTop = answer.scrollHeight;
             }
@@ -385,6 +425,8 @@
         meta.className = 'meta err';
         meta.textContent = 'Error: ' + e.message;
       } finally {
+        answer.querySelector('.cursor')?.remove();
+        answer.querySelector('.loader')?.remove();
         busy = false;
         go.disabled = false;
       }
