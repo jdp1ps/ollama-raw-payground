@@ -27,9 +27,9 @@ There are no npm dependencies.
 - [Ollama](https://ollama.com/) running locally
 - One or more models pulled, e.g.:
   ```bash
-  ollama pull smollm:1.7b-base-v0.2-q5_1
+  ollama pull mistral:instruct
+  ollama pull mistral:v0.3
   ollama pull qwen2.5:1.5b
-  ollama pull llama3
   ```
 
 ## Configuration
@@ -126,9 +126,9 @@ cd ollama-raw-payground
 echo "ACCESS_CODE=your-code-here" > .env
 
 # models
-ollama pull smollm:1.7b-base-v0.2-q5_1
+ollama pull mistral:instruct
+ollama pull mistral:v0.3
 ollama pull qwen2.5:1.5b
-ollama pull llama3
 ```
 
 Run the app on port 80 (needs root):
@@ -165,7 +165,7 @@ Environment="OLLAMA_KEEP_ALIVE=-1"
 Then `sudo systemctl restart ollama` and pre-warm the models once:
 
 ```bash
-for m in smollm:1.7b-base-v0.2-q5_1 qwen2.5:1.5b llama3; do
+for m in mistral:instruct mistral:v0.3 qwen2.5:1.5b; do
   curl -s http://localhost:11434/api/generate -d "{\"model\":\"$m\"}" >/dev/null
 done
 ```
@@ -176,8 +176,8 @@ The dropdown is populated from whatever `ollama list` reports. To remove or add
 a model:
 
 ```bash
-ollama rm llama3      # remove (frees disk; re-pull to restore)
-ollama pull llama3    # add
+ollama rm mistral:v0.3      # remove (frees disk; re-pull to restore)
+ollama pull mistral:v0.3    # add
 ```
 
 ## Security note
