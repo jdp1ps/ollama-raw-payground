@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ollama raw /api/generate — demo</title>
+  <style>
+    :root {
+      --bg: #0f1116;
+      --panel: #1a1d26;
+      --border: #2a2f3a;
+      --text: #e6e8ee;
+      --muted: #8b91a1;
+      --accent: #6ea8fe;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 24px;
+    }
+    header h1 { margin: 2px 0 0; font-size: 18px; }
+    header p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    header code { color: var(--accent); }
+    header .institution {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    header .logos {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      background: #fff;
+      padding: 10px 18px;
+      border-radius: 12px;
+      flex-shrink: 0;
+    }
+    header .logos img { height: 64px; width: auto; display: block; }
+    main {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 0;
+      height: calc(100vh - 70px);
+    }
+    .controls {
+      padding: 20px 24px;
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+    }
+    .field { margin-bottom: 20px; }
+    .field label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .field label .val { color: var(--accent); font-variant-numeric: tabular-nums; }
+    select, input[type="number"] {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    input[type="range"] { width: 100%; accent-color: var(--accent); }
+    .conversation {
+      display: flex;
+      flex-direction: column;
+      padding: 20px 24px;
+      overflow: hidden;
+    }
+    .prompt-row { display: flex; gap: 10px; margin-bottom: 16px; }
+    textarea {
+      flex: 1;
+      resize: vertical;
+      min-height: 64px;
+      padding: 10px 12px;
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font: inherit;
+    }
+    button {
+      align-self: stretch;
+      padding: 0 22px;
+      background: var(--accent);
+      color: #0f1116;
+      border: 0;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .answer {
+      flex: 1;
+      overflow-y: auto;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 14px;
+    }
+    .answer .echo { color: var(--muted); }
+    .answer .completion { color: var(--text); }
+    .meta {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+      min-height: 16px;
+    }
+    .err { color: #ff7a7a; }
+
+    .gate {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 9, 13, 0.85);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .gate.show { display: flex; }
+    .gate-box {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 28px;
+      width: 320px;
+      text-align: center;
+    }
+    .gate-box h2 { margin: 0 0 6px; font-size: 17px; }
+    .gate-box p { margin: 0 0 16px; color: var(--muted); font-size: 13px; }
+    .gate-box input {
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font: inherit;
+      text-align: center;
+    }
+    .gate-box button { width: 100%; padding: 10px; }
+    .gate-box .gate-err { color: #ff7a7a; font-size: 13px; min-height: 18px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logos">
+      <img src="https://dbjywyrc2efmd.cloudfront.net/misc/4279/events/9484/2026_06_19_16_15_57.png" alt="CoDataSorb" />
+      <img src="https://dkou0skpxpnwz.cloudfront.net/accounts/177780/images/260109_LogoSorbonneAlliance_particule_canard_sur_fond_transparent1_1_.png" alt="Sorbonne Alliance" />
+    </div>
+    <div class="titles">
+      <div class="institution">CoDataSorb</div>
+      <h1>AI course cycle for the humanities and social sciences</h1>
+      <p>LLM playground</p>
+    </div>
+  </header>
+
+  <main>
+    <section class="controls">
+      <div class="field">
+        <label for="model">Model</label>
+        <select id="model"><option>loading…</option></select>
+      </div>
+
+      <div class="field">
+        <label for="temperature">temperature <span class="val" id="temperature-v">0.0</span></label>
+        <input type="range" id="temperature" min="0" max="2" step="0.1" value="0" />
+      </div>
+
+      <div class="field">
+        <label for="top_p">top_p <span class="val" id="top_p-v">0.90</span></label>
+        <input type="range" id="top_p" min="0" max="1" step="0.05" value="0.9" />
+      </div>
+
+      <div class="field">
+        <label for="top_k">top_k <span class="val" id="top_k-v">40</span></label>
+        <input type="range" id="top_k" min="0" max="100" step="1" value="40" />
+      </div>
+
+      <div class="field">
+        <label for="num_predict">num_predict (max tokens)</label>
+        <input type="number" id="num_predict" min="1" max="2048" value="80" />
+      </div>
+    </section>
+
+    <section class="conversation">
+      <div class="prompt-row">
+        <textarea id="prompt" placeholder="Type a prompt to complete…">Describe the poetic style of Charle Beaudelaire</textarea>
+        <button id="go">Generate</button>
+      </div>
+      <div class="answer" id="answer"></div>
+      <div class="meta" id="meta"></div>
+    </section>
+  </main>
+
+  <div class="gate" id="gate">
+    <div class="gate-box">
+      <h2>Access code</h2>
+      <p>Enter the code your instructor gave you.</p>
+      <input type="text" id="gate-input" placeholder="code" autocomplete="off" />
+      <button id="gate-go">Unlock</button>
+      <div class="gate-err" id="gate-err"></div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    // ---- Access code handling ----
+    const CODE_KEY = 'ollama-demo-code';
+    const getCode = () => localStorage.getItem(CODE_KEY) || '';
+    const setCode = (c) => localStorage.setItem(CODE_KEY, c);
+
+    // fetch wrapper that attaches the access code and rejects on 403.
+    async function apiFetch(path, opts = {}) {
+      const res = await fetch(path, {
+        ...opts,
+        headers: { ...(opts.headers || {}), 'x-access-code': getCode() },
+      });
+      if (res.status === 403) {
+        showGate('That code was rejected. Try again.');
+        throw new Error('Access code required');
+      }
+      return res;
+    }
+
+    function showGate(msg = '') {
+      $('gate-err').textContent = msg;
+      $('gate-input').value = getCode();
+      $('gate').classList.add('show');
+      $('gate-input').focus();
+    }
+    function hideGate() { $('gate').classList.remove('show'); }
+
+    async function submitCode() {
+      const c = $('gate-input').value.trim();
+      if (!c) return;
+      setCode(c);
+      // Validate against the gated /api/tags; loadModels re-opens the gate on 403.
+      const ok = await loadModels();
+      if (ok) hideGate();
+    }
+    $('gate-go').addEventListener('click', submitCode);
+    $('gate-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitCode(); });
+
+    // Live value readouts for sliders.
+    const fmt = { temperature: (v) => Number(v).toFixed(1), top_p: (v) => Number(v).toFixed(2), top_k: (v) => v };
+    for (const id of ['temperature', 'top_p', 'top_k']) {
+      const el = $(id), out = $(id + '-v');
+      el.addEventListener('input', () => (out.textContent = fmt[id](el.value)));
+    }
+
+    // Populate the model dropdown from Ollama. Returns true on success.
+    async function loadModels() {
+      const sel = $('model');
+      try {
+        const r = await apiFetch('/api/tags');
+        const { models = [] } = await r.json();
+        sel.innerHTML = '';
+        if (!models.length) {
+          sel.innerHTML = '<option>no models found</option>';
+          return true;
+        }
+        for (const m of models) {
+          const o = document.createElement('option');
+          o.value = o.textContent = m.name;
+          sel.appendChild(o);
+        }
+        return true;
+      } catch (e) {
+        // 403 already re-opened the gate; only show other errors.
+        if (e.message !== 'Access code required') {
+          sel.innerHTML = '<option>Ollama unreachable</option>';
+        }
+        return false;
+      }
+    }
+
+    // Startup: ask for the code if we don't have one, else try loading.
+    (async () => {
+      if (!getCode()) { showGate(); return; }
+      const ok = await loadModels();
+      if (!ok && getCode()) showGate();
+    })();
+
+    const go = $('go');
+    let busy = false;
+
+    async function generate() {
+      if (busy) return;
+      const prompt = $('prompt').value;
+      const model = $('model').value;
+      if (!prompt || !model) return;
+
+      busy = true;
+      go.disabled = true;
+      const answer = $('answer');
+      const meta = $('meta');
+      meta.className = 'meta';
+      meta.textContent = 'generating…';
+      // Show the raw prompt echoed, then the model's continuation after it.
+      answer.innerHTML = '<span class="echo"></span><span class="completion"></span>';
+      answer.querySelector('.echo').textContent = prompt;
+      const completion = answer.querySelector('.completion');
+
+      const body = {
+        model,
+        prompt,
+        raw: true,
+        stream: true,
+        options: {
+          temperature: Number($('temperature').value),
+          top_p: Number($('top_p').value),
+          top_k: Number($('top_k').value),
+          num_predict: Number($('num_predict').value),
+        },
+      };
+
+      try {
+        const res = await apiFetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = '';
+        let last = null;
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          // NDJSON: one JSON object per line.
+          let nl;
+          while ((nl = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, nl).trim();
+            buf = buf.slice(nl + 1);
+            if (!line) continue;
+            const obj = JSON.parse(line);
+            if (obj.error) throw new Error(obj.error);
+            if (obj.response) {
+              completion.textContent += obj.response;
+              answer.scrollTop = answer.scrollHeight;
+            }
+            if (obj.done) last = obj;
+          }
+        }
+
+        if (last) {
+          const toks = last.eval_count ?? 0;
+          const secs = (last.eval_duration ?? 0) / 1e9;
+          const tps = secs > 0 ? (toks / secs).toFixed(1) : '—';
+          meta.textContent =
+            `${toks} tokens · ${secs.toFixed(2)}s · ${tps} tok/s · stop: ${last.done_reason ?? 'done'}`;
+        } else {
+          meta.textContent = 'done';
+        }
+      } catch (e) {
+        meta.className = 'meta err';
+        meta.textContent = 'Error: ' + e.message;
+      } finally {
+        busy = false;
+        go.disabled = false;
+      }
+    }
+
+    go.addEventListener('click', generate);
+    // Ctrl/Cmd+Enter to generate.
+    $('prompt').addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate();
+    });
+  </script>
+</body>
+</html>

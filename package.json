@@ -1,0 +1,10 @@
+{
+  "name": "llm-api",
+  "version": "1.0.0",
+  "description": "Pedagogical demo of Ollama's raw /api/generate endpoint",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "private": true
+}
