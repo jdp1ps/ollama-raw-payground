@@ -104,11 +104,10 @@ Notes:
 
 ### After creating (either method)
 
-The instance is a blank Debian box. Install the **NVIDIA driver** first (see
-Google's [GPU driver install
-guide](https://cloud.google.com/compute/docs/gpus/install-drivers-gpu)), then
-follow the deploy steps below to install Ollama, pull models, and run the app.
-Also (re)create the firewall rule if it does not already exist.
+Just follow the deploy steps below — install Node.js and Ollama, pull the
+models, run the app. The Ollama install script detects the L4 GPU and installs
+the NVIDIA/CUDA driver itself, so no separate driver setup is needed. Also
+(re)create the firewall rule if it does not already exist.
 
 ## Deploy (Google Compute Engine example)
 
