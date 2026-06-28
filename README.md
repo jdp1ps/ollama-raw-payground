@@ -60,6 +60,56 @@ npm start
 
 Open <http://localhost:3000>, enter the access code, choose a model, and prompt.
 
+## Reproducing the VM
+
+The reference instance is a GPU box: `g2-standard-4` (4 vCPU, 16 GB RAM) with
+one **NVIDIA L4** (24 GB VRAM), Debian 13, a 100 GB boot disk, standard
+(non-preemptible) provisioning. The L4 keeps generation fast and fits all three
+models in VRAM at once.
+
+### With gcloud
+
+```bash
+gcloud compute instances create llm-playground \
+  --project=formation-ia-shs \
+  --zone=us-central1-b \
+  --machine-type=g2-standard-4 \
+  --maintenance-policy=TERMINATE \
+  --image-family=debian-13 \
+  --image-project=debian-cloud \
+  --boot-disk-size=100GB \
+  --boot-disk-type=pd-balanced
+```
+
+Notes:
+
+- **No `--accelerator` flag.** On the G2 family the GPU is bundled with the
+  machine type — `g2-standard-4` always comes with one L4, and passing
+  `--accelerator` errors.
+- `--maintenance-policy=TERMINATE` is **required** for GPU VMs.
+- You need GPU quota (`NVIDIA_L4_GPUS` in `us-central1`) for this to succeed.
+
+### Manually, in the Cloud Console
+
+1. **Compute Engine → VM instances → Create instance**.
+2. **Machine configuration**: select the **GPUs** category, GPU type
+   **NVIDIA L4**, number of GPUs **1**. Pick machine type **g2-standard-4**.
+3. A dialog will note that GPU VMs must be set to stop during host maintenance —
+   accept it (this sets *on host maintenance = Terminate*).
+4. **Boot disk → Change**: OS **Debian**, version **Debian GNU/Linux 13
+   (trixie)**, disk type **Balanced persistent disk**, size **100 GB**.
+5. **Networking**: keep the default network; ensure **External IPv4** is set to
+   *Ephemeral* (or reserve a static IP) so learners can reach it.
+6. Leave provisioning as **Standard** (not Spot/Preemptible). Click **Create**.
+
+### After creating (either method)
+
+The instance is a blank Debian box. Install the **NVIDIA driver** first (see
+Google's [GPU driver install
+guide](https://cloud.google.com/compute/docs/gpus/install-drivers-gpu)), then
+follow the deploy steps below to install Ollama, pull models, and run the app.
+Also (re)create the firewall rule if it does not already exist.
+
 ## Deploy (Google Compute Engine example)
 
 On a fresh Debian instance:
